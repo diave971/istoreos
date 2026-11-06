@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - istoreos-25.12
-    paths:
-      - '.github/workflows/build-r76s.yml'
 
 permissions:
   contents: write
@@ -28,7 +26,8 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo -E apt-get -qq update
-          sudo -E apt-get -qq install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip libpython3-dev qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev python3-setuptools
+          sudo -E apt-get -qq install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip libpython3-dev python3-pyelftools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev python3-setuptools
+          python3 -m pip install --break-system-packages pyelftools || true
 
       - name: Update & Install Feeds
         run: |
@@ -85,6 +84,7 @@ jobs:
             - **适用设备**：FriendlyElec NanoPi R76S (瑞芯微 RK3576)
             - **修复核心问题**：
               1. 修复主线 U-Boot 2025.10 对非 Rayson（如 Longsys/Foresee A3A551 等）eMMC 芯片 HS200/HS400 时序调谐失败导致线刷卡死无法开机的问题；
-              2. 修正 `legacy.mk` 与 `armv8.mk` 构建参数一致性，完善无线与热插拔模块包。
+              2. 修复 Realtek r8125 9.016 驱动在桥接/br_netfilter场景下因 RX skb headroom 不足导致的内核 Oops 崩溃缺陷；
+              3. 修正 `legacy.mk` 与 `armv8.mk` 构建参数一致性，完善无线与热插拔模块包。
             - **线刷说明**：下载 `.img.gz` 后解压得到 `.img`，使用 RKDevTool 烧录至 eMMC。
           files: ${{ env.FIRMWARE }}/*
