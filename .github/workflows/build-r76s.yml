@@ -1,0 +1,90 @@
+name: Build iStoreOS for NanoPi R76S
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - istoreos-25.12
+    paths:
+      - '.github/workflows/build-r76s.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build NanoPi R76S Firmware
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -a -f
+          df -h
+
+      - name: Install Build Dependencies
+        run: |
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip libpython3-dev qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev python3-setuptools
+
+      - name: Update & Install Feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Generate R76S Configuration
+        run: |
+          cat << 'EOF' > .config
+          CONFIG_TARGET_rockchip=y
+          CONFIG_TARGET_rockchip_armv8=y
+          CONFIG_TARGET_rockchip_armv8_DEVICE_friendlyarm_nanopi-r76s=y
+          CONFIG_TARGET_ROOTFS_SQUASHFS=y
+          EOF
+          make defconfig
+
+      - name: Download Package Sources
+        run: |
+          make download -j8
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: Compile Firmware
+        id: compile
+        run: |
+          echo "Building firmware with $(nproc) threads..."
+          make -j$(nproc) || make -j1 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      - name: Organize Firmware Output
+        id: organize
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          cd bin/targets/rockchip/armv8
+          rm -rf packages
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: iStoreOS-25.12-NanoPi-R76S-Firmware
+          path: ${{ env.FIRMWARE }}/*
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: steps.compile.outputs.status == 'success' && !cancelled()
+        with:
+          tag_name: v25.12-r76s-${{ github.run_number }}
+          name: iStoreOS 25.12 for FriendlyElec NanoPi R76S (Build #${{ github.run_number }})
+          body: |
+            ### iStoreOS 25.12 (NanoPi R76S 修复版线刷固件)
+            
+            - **适用设备**：FriendlyElec NanoPi R76S (瑞芯微 RK3576)
+            - **修复核心问题**：
+              1. 修复主线 U-Boot 2025.10 对非 Rayson（如 Longsys/Foresee A3A551 等）eMMC 芯片 HS200/HS400 时序调谐失败导致线刷卡死无法开机的问题；
+              2. 修正 `legacy.mk` 与 `armv8.mk` 构建参数一致性，完善无线与热插拔模块包。
+            - **线刷说明**：下载 `.img.gz` 后解压得到 `.img`，使用 RKDevTool 烧录至 eMMC。
+          files: ${{ env.FIRMWARE }}/*

@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antigravity <dev@antigravity.ai>
+Date: Sat, 7 Nov 2026 01:00:00 +0800
+Subject: [PATCH] rockchip: rk3576: disable u-boot emmc hs200 and hs400 mode
+
+RK3576 eMMC controller (sdhci) in mainline U-Boot has timing tuning
+issues in HS200/HS400 mode on various non-Rayson eMMC chips (such as
+Longsys/Foresee A3A551 on FriendlyElec NanoPi R76S), causing tuning
+execution failed (-5) and boot hangs.
+
+Disable HS200 and HS400 in U-Boot and limit max-frequency to 52MHz so
+U-Boot can reliably load the kernel from eMMC. Once booted, the Linux
+kernel's own driver and device tree will handle full speed eMMC.
+
+Signed-off-by: Antigravity <dev@antigravity.ai>
+---
+ arch/arm/dts/rk3576-u-boot.dtsi | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+--- a/arch/arm/dts/rk3576-u-boot.dtsi
++++ b/arch/arm/dts/rk3576-u-boot.dtsi
+@@ -162,6 +162,13 @@
+ 	u-boot,spl-sfc-no-dma;
+ };
+ 
++&sdhci {
++	/delete-property/ mmc-hs200-1_8v;
++	/delete-property/ mmc-hs400-1_8v;
++	/delete-property/ mmc-hs400-enhanced-strobe;
++	max-frequency = <52000000>;
++};
++
+ &sys_grf {
+ 	bootph-all;
+ };

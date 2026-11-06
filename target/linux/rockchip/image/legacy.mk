@@ -194,8 +194,9 @@ define Device/friendlyarm_nanopi-r76s
 $(call Device/Legacy/rk3576,$(1))
   DEVICE_VENDOR := FriendlyARM
   DEVICE_MODEL := NanoPi R76S
-  DEVICE_PACKAGES += kmod-r8169 kmod-hwmon-pwmfan kmod-thermal kmod-rtw88-8822cs
+  DEVICE_PACKAGES += kmod-r8169 kmod-hwmon-pwmfan kmod-thermal kmod-rtw88-8822cs wpad-basic-mbedtls
 endef
+TARGET_DEVICES += friendlyarm_nanopi-r76s
 
 
 # RK3588
