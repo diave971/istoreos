@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antigravity <dev@antigravity.ai>
+Date: Sat, 7 Nov 2026 02:00:00 +0800
+Subject: [PATCH] usb: storage: uas: add IGNORE_UAS quirk for Realtek RTL9210
+
+The Realtek RTL9210 / RTL9210B USB-NVMe/SATA bridge chips frequently suffer from
+SCSI command queue timeouts and lockups under UAS mode during sustained or heavy
+I/O workloads (such as torrent downloads, Docker operations, and rsync), triggering
+uas_eh_abort_handler and full USB bus resets, which causes the filesystem to remount
+read-only (dropping the drive).
+
+Add US_FL_IGNORE_UAS quirk for Realtek RTL9210/RTL9210B (0bda:9210) so the kernel
+automatically uses the rock-solid usb-storage (BOT) driver.
+
+Signed-off-by: Antigravity <dev@antigravity.ai>
+---
+ drivers/usb/storage/unusual_uas.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+--- a/drivers/usb/storage/unusual_uas.h
++++ b/drivers/usb/storage/unusual_uas.h
+@@ -70,6 +70,14 @@ UNUSUAL_DEV(0x0bc2, 0x331a, 0x0000, 0x99
+ 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+ 		US_FL_NO_REPORT_LUNS),
+ 
++/* Reported-by: Realtek RTL9210 / RTL9210B NVMe/SATA bridge - disable UAS to prevent dropouts */
++UNUSUAL_DEV(0x0bda, 0x9210, 0x0000, 0x9999,
++		"Realtek",
++		"RTL9210 M.2 Bridge",
++		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
++		US_FL_IGNORE_UAS),
++
+ /* Reported-by: Benjamin Tissoires <benjamin.tissoires@redhat.com> */
+ UNUSUAL_DEV(0x13fd, 0x3940, 0x0000, 0x9999,
+ 		"Initio Corporation",

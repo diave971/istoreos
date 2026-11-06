@@ -85,6 +85,7 @@ jobs:
             - **修复核心问题**：
               1. 修复主线 U-Boot 2025.10 对非 Rayson（如 Longsys/Foresee A3A551 等）eMMC 芯片 HS200/HS400 时序调谐失败导致线刷卡死无法开机的问题；
               2. 修复 Realtek r8125 9.016 驱动在桥接/br_netfilter场景下因 RX skb headroom 不足导致的内核 Oops 崩溃缺陷；
-              3. 修正 `legacy.mk` 与 `armv8.mk` 构建参数一致性，完善无线与热插拔模块包。
+              3. 内置 RTL9210/RTL9210B 及常见外接硬盘盒免掉盘优化（内核级忽略不稳定 UAS 走稳定 BOT 驱动，并关闭 USB 自动挂起）；
+              4. 修正 `legacy.mk` 与 `armv8.mk` 构建参数一致性，完善无线与热插拔模块包。
             - **线刷说明**：下载 `.img.gz` 后解压得到 `.img`，使用 RKDevTool 烧录至 eMMC。
           files: ${{ env.FIRMWARE }}/*

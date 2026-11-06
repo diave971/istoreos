@@ -1,0 +1,18 @@
+#!/bin/sh
+
+mkdir -p /etc/modprobe.d
+cat << 'EOF' > /etc/modprobe.d/usb-storage-quirks.conf
+options usb-storage quirks=0bda:9210:u,0bda:9200:u,152d:0578:u,152d:0580:u
+EOF
+
+# Disable USB autosuspend to keep USB 3.0 physical layer alive
+if [ -f /sys/module/usbcore/parameters/autosuspend ]; then
+	echo -1 > /sys/module/usbcore/parameters/autosuspend
+fi
+
+# Ensure USB power control is set to "on" on system boot
+if [ -f /etc/rc.local ] && ! grep -q "usb/devices" /etc/rc.local; then
+	sed -i '/exit 0/i for i in /sys/bus/usb/devices/*/power/control; do echo on > "$i" 2>/dev/null; done' /etc/rc.local
+fi
+
+exit 0
