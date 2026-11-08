@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build NanoPi R76S Firmware
@@ -109,8 +112,9 @@ jobs:
             - **适用设备**：FriendlyElec NanoPi R76S (瑞芯微 RK3576)
             - **底层基准**：同步官方 `dl.istoreos.com/iStoreOS/r76s/feeds.conf` 与 `config.seed`（64MB Kernel 分区 + 256MB RootFS 分区 + 完整内置 iStore、QuickStart、Docker、Samba4、DiskMan 等官方套件）
             - **核心修复补丁**：
-              1. **eMMC 线刷防卡死**：修复主线 U-Boot 2025.10 对江波龙 FORESEE A3A551 等 eMMC 芯片 HS200/HS400 动态 CMD21 调谐失败（`-5`）导致线刷无法启动的问题（U-Boot 阶段限速 52MHz 稳定引导，进入 Linux 6.12 后恢复 HS400 全速）；
-              2. **2.5G 网卡防崩溃**：合入 FriendlyARM 针对 Realtek `r8125 9.016.01` 在网桥/Docker `br_netfilter` 场景下因 RX skb headroom 不足引发内核 Oops 死机的修复补丁；
-              3. **外接硬盘盒防掉盘**：内核级 `unusual_uas.h` 针对 `RTL9210/RTL9210B (0bda:9210)` 等主控标记 `US_FL_IGNORE_UAS` 强制走高稳定 BOT 传输模式，并配合系统级关闭 USB 自动休眠（`autosuspend=-1`）。
+              1. **启动 ~10s 电源域 SError 崩溃修复（关键）**：移植 `istoreos-24.10` 针对 RK3576 `nputop`/`vop` 电源域上电延时（`15us`）与未初始化 QoS 防误写补丁（`809-04`~`809-06`），并同步 `rk3576-npu.dtsi` SCMI NPU 时钟、`rk3576-nvm-power-domain.dtsi` eMMC 电源域常驻与 `rk3576-gpu.dtsi` 设备树，彻底解决拔除 TF 卡从 eMMC 启动时卡死在 `S10boot (kmodloader)` 导致 SYS 红灯一直闪烁无法开机的问题；
+              2. **eMMC 线刷防卡死**：修复主线 U-Boot 2025.10 对江波龙 FORESEE A3A551 等 eMMC 芯片 HS200/HS400 动态 CMD21 调谐失败（`-5`）导致线刷无法启动的问题（U-Boot 阶段限速 52MHz 稳定引导，进入 Linux 6.12 后恢复 HS400 全速）；
+              3. **2.5G 网卡防崩溃**：合入 FriendlyARM 针对 Realtek `r8125 9.016.01` 在网桥/Docker `br_netfilter` 场景下因 RX skb headroom 不足引发内核 Oops 死机的修复补丁；
+              4. **外接硬盘盒防掉盘**：内核级 `unusual_uas.h` 针对 `RTL9210/RTL9210B (0bda:9210)` 等主控标记 `US_FL_IGNORE_UAS` 强制走高稳定 BOT 传输模式，并配合系统级关闭 USB 自动休眠（`autosuspend=-1`）。
             - **刷机说明**：下载 `.img.gz` 后既可直接用于 iStoreOS 后台 OTA/保留配置升级，也可解压得到 `.img` 使用 RKDevTool 线刷至 eMMC。
           files: ${{ env.FIRMWARE }}/*

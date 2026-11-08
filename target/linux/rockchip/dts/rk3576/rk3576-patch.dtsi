@@ -1,5 +1,5 @@
 //#include "rk3576-no-power-domain.dtsi"
-//#include "rk3576-nvm-power-domain.dtsi"
+#include "rk3576-nvm-power-domain.dtsi"
 
 / {
 	rockchip_system_monitor: rockchip-system-monitor {
