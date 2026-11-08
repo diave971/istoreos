@@ -1,0 +1,130 @@
+#!/bin/sh
+# Boot diagnostics for FriendlyElec NanoPi R76S.
+#
+# Started from preinit. For the first 20 minutes after boot it periodically
+# snapshots the kernel log and process state into a raw area at the end of
+# the eMMC user area, outside of all partitions. That area survives a hang,
+# a power cycle and re-flashing a normal image, so it can be read back later
+# from any firmware (see "r76s-bootlog read").
+#
+# Layout of the last 32 MiB of the eMMC:
+#   slot A (16 MiB): snapshots of the current boot
+#   slot B (16 MiB): last snapshot of the previous boot
+
+MAGIC="R76S-BOOTLOG-V1"
+END="=====R76S-BOOTLOG-END====="
+SLOT_BLOCKS=4096		# 16 MiB in 4 KiB blocks
+WORK=/tmp/r76s-bootlog
+
+find_emmc() {
+	local d
+	for d in /sys/block/mmcblk*; do
+		case "${d##*/}" in *boot*|*rpmb) continue ;; esac
+		[ "$(cat "$d/device/type" 2>/dev/null)" = "MMC" ] && {
+			echo "${d##*/}"
+			return 0
+		}
+	done
+	return 1
+}
+
+# first 4 KiB block of slot A; slot B follows it
+slot_base() {
+	echo $(( $(cat "/sys/block/$1/size") / 8 - 2 * SLOT_BLOCKS ))
+}
+
+read_slot() { # <dev> <block>
+	dd if="/dev/$1" bs=4096 skip="$2" count="$SLOT_BLOCKS" 2>/dev/null | \
+		tr -d '\000' | sed -n "/^$MAGIC/,/^$END/p"
+}
+
+write_slot() { # <file> <dev> <block>
+	# truncate so a terminating NUL block always fits in the slot
+	dd if="$1" of="$WORK/slot" bs=4096 count=$((SLOT_BLOCKS - 1)) 2>/dev/null
+	dd if=/dev/zero bs=4096 count=1 >> "$WORK/slot" 2>/dev/null
+	dd if="$WORK/slot" of="/dev/$2" bs=4096 seek="$3" conv=notrunc 2>/dev/null
+	sync
+}
+
+snapshot() { # <iteration>
+	local p st
+	{
+		echo "$MAGIC iter=$1 uptime=$(cut -d' ' -f1 /proc/uptime)"
+		echo "### uname"; uname -a
+		echo "### cmdline"; cat /proc/cmdline
+		echo "### release"; cat /etc/openwrt_release 2>/dev/null
+		echo "### leds"
+		for p in /sys/class/leds/*; do
+			echo "${p##*/}: $(grep -o '\[[^]]*\]' "$p/trigger" 2>/dev/null)"
+		done
+		echo "### ps"; ps w
+		echo "### stacks (D state, kmodloader, init scripts)"
+		for p in /proc/[0-9]*; do
+			st="$(sed -n 's/^State:[[:space:]]*//p' "$p/status" 2>/dev/null)"
+			case "$st $(tr '\000' ' ' < "$p/cmdline" 2>/dev/null)" in
+			D*|*kmodloader*|*/etc/rc.d/*|*/etc/init.d/*)
+				echo "--- pid ${p#/proc/} [$st] $(tr '\000' ' ' < "$p/cmdline" 2>/dev/null)"
+				cat "$p/stack" 2>/dev/null
+				;;
+			esac
+		done
+		echo "### modules"; cat /proc/modules
+		echo "### mounts"; cat /proc/mounts
+		echo "### meminfo"; head -n 5 /proc/meminfo
+		echo "### pstore (log of the previous boot if it crashed)"
+		cat "$WORK/pstore" 2>/dev/null
+		echo "### dmesg"; dmesg
+		echo "### logread"
+		[ -S /var/run/ubus/ubus.sock ] && logread 2>/dev/null | tail -n 3000
+		echo "$END"
+	} > "$WORK/log.new" 2>&1
+	mv "$WORK/log.new" "$WORK/log"
+}
+
+run() {
+	local dev base i=0 up
+
+	mkdir -p "$WORK"
+
+	while ! dev="$(find_emmc)" || [ ! -b "/dev/$dev" ]; do
+		i=$((i + 1))
+		[ $i -gt 60 ] && return 1
+		sleep 1
+	done
+	base="$(slot_base "$dev")"
+
+	# keep the last snapshot of the previous boot in slot B
+	read_slot "$dev" "$base" > "$WORK/prev"
+	[ -s "$WORK/prev" ] && write_slot "$WORK/prev" "$dev" $((base + SLOT_BLOCKS))
+	rm -f "$WORK/prev"
+
+	grep -q pstore /proc/mounts || mount -t pstore pstore /sys/fs/pstore 2>/dev/null
+	for i in /sys/fs/pstore/*; do
+		[ -f "$i" ] && { echo "--- $i"; cat "$i"; }
+	done > "$WORK/pstore" 2>/dev/null
+
+	i=0
+	while :; do
+		i=$((i + 1))
+		snapshot $i
+		write_slot "$WORK/log" "$dev" "$base"
+		up="$(cut -d. -f1 /proc/uptime)"
+		[ "$up" -ge 1200 ] && break
+		if [ "$up" -lt 180 ]; then sleep 2; else sleep 15; fi
+	done
+}
+
+case "$1" in
+read)
+	# print the logs; works on any firmware (the eMMC name may differ)
+	dev="$(find_emmc)" || { echo "eMMC not found" >&2; exit 1; }
+	base="$(slot_base "$dev")"
+	echo "########## slot A (most recent boot) ##########"
+	read_slot "$dev" "$base"
+	echo "########## slot B (boot before that) ##########"
+	read_slot "$dev" $((base + SLOT_BLOCKS))
+	;;
+*)
+	run
+	;;
+esac
