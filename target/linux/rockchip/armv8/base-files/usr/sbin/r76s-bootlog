@@ -52,6 +52,11 @@ snapshot() { # <iteration>
 		echo "$MAGIC iter=$1 uptime=$(cut -d' ' -f1 /proc/uptime)"
 		echo "### uname"; uname -a
 		echo "### cmdline"; cat /proc/cmdline
+		echo "### boot_id"; cat /proc/sys/kernel/random/boot_id
+		echo "### dt chosen (tells which U-Boot booted us)"
+		for p in /proc/device-tree/chosen/*; do
+			echo "${p##*/}: $(tr '\000' ' ' < "$p" 2>/dev/null | cut -c1-200)"
+		done
 		echo "### release"; cat /etc/openwrt_release 2>/dev/null
 		echo "### leds"
 		for p in /sys/class/leds/*; do
