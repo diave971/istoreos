@@ -37,6 +37,16 @@
 };
 */
 
+/*
+ * The command queue engine times out on the FORESEE A3A551 eMMC
+ * ("cqhci: timeout for tag ..." followed by endless CQE recovery),
+ * which stalls all I/O and leaves the board stuck in boot.
+ * 24.10 ran the same eMMC in HS400ES without CQE.
+ */
+&sdhci {
+	/delete-property/ supports-cqe;
+};
+
 &sdmmc {
 	cd-gpios = <&gpio0 RK_PA7 GPIO_ACTIVE_LOW>;
 };
