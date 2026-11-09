@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: diave971 <diave971@users.noreply.github.com>
+Date: Mon, 9 Nov 2026 18:00:00 +0800
+Subject: [PATCH] mmc: sdhci-of-dwcmshc: allow 52MHz in HS200/HS400
+
+The CVE-2025-71200 check treats every clock <= 52000000 as illegal in
+HS200/HS400 mode and skips the DLL-bypass configuration.  But 52MHz is
+the lowest legal clock for HS200/HS400 and is used internally by
+mmc_select_hs200() while switching the card to HS200.  Skipping the
+DLL-bypass path leaves the PHY configured for the previous high-speed
+clock, which causes CRC errors, I/O errors and SQUASHFS read failures
+during boot.
+
+Only reject frequencies strictly below 52MHz; let exactly 52MHz take the
+normal low-speed DLL-bypass path.
+
+Signed-off-by: diave971 <diave971@users.noreply.github.com>
+---
+ drivers/mmc/host/sdhci-of-dwcmshc.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+--- a/drivers/mmc/host/sdhci-of-dwcmshc.c
++++ b/drivers/mmc/host/sdhci-of-dwcmshc.c
+@@ -653,9 +653,13 @@ static void dwcmshc_rk3568_set_clock(struct sdhci_host *host, unsigned int clock
+ 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
+ 
+ 	if (clock <= 52000000) {
+-		if (host->mmc->ios.timing == MMC_TIMING_MMC_HS200 ||
+-		    host->mmc->ios.timing == MMC_TIMING_MMC_HS400) {
++		/* 52MHz is the minimum legal clock for HS200/HS400; only
++		 * frequencies below it must be rejected.
++		 */
++		if (clock < 52000000 &&
++		    (host->mmc->ios.timing == MMC_TIMING_MMC_HS200 ||
++		     host->mmc->ios.timing == MMC_TIMING_MMC_HS400)) {
+ 			dev_err(mmc_dev(host->mmc),
+ 				"Can't reduce the clock below 52MHz in HS200/HS400 mode");
+ 			goto enable_clk;
+		}
