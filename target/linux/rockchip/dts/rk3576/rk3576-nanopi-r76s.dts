@@ -38,19 +38,14 @@
 */
 
 /*
- * The command queue engine times out on the FORESEE A3A551 eMMC
- * ("cqhci: timeout for tag ..." followed by endless CQE recovery),
- * which stalls all I/O and leaves the board stuck in boot.
- * 24.10 ran the same eMMC in HS400ES without CQE.
+ * CQE-enabled HS400ES test variant.
+ *
+ * The production DTS keeps CQE disabled because the FORESEE A3A551
+ * eMMC hit "cqhci: timeout for tag ..." on 25.12. This branch
+ * intentionally keeps the upstream supports-cqe property and pairs it
+ * with the FriendlyElec 6.1.141 BSP tuning/tap behaviour from 037-09.
  */
 &sdhci {
-	/delete-property/ supports-cqe;
-	/*
-	 * Restore HS400ES. FriendlyElec's 6.1.141 BSP driver lets every
-	 * clock <= 52MHz take the low-speed DLL-bypass path and uses
-	 * RK3576-specific HS400 tap values; 037-09 ports that behaviour.
-	 * CQE stays disabled for the FORESEE A3A551 eMMC.
-	 */
 	mmc-hs400-1_8v;
 	mmc-hs400-enhanced-strobe;
 };
