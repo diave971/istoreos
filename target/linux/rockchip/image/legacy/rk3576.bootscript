@@ -7,7 +7,7 @@ fi
 
 part uuid ${devtype} ${devnum}:2 uuid
 
-setenv bootargs "console=ttyS0,1500000 earlycon=uart8250,mmio32,0x2ad40000 root=PARTUUID=${uuid} rw rootwait panic=10 usbcore.autosuspend=-1 ${extraargs}"
+setenv bootargs "console=ttyS0,1500000 earlycon=uart8250,mmio32,0x2ad40000 root=PARTUUID=${uuid} rw rootwait usbcore.autosuspend=-1 ${extraargs}"
 
 load ${devtype} ${devnum}:1 ${fdt_addr_r} rockchip.dtb
 load ${devtype} ${devnum}:1 ${kernel_addr_r} kernel.img

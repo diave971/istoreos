@@ -1,7 +1,0 @@
-r76s_bootlog_start() {
-	grep -q 'friendlyarm,nanopi-r76s' /proc/device-tree/compatible 2>/dev/null || return 0
-	[ -f /usr/sbin/r76s-bootlog ] || return 0
-	( sh /usr/sbin/r76s-bootlog </dev/null >/dev/null 2>&1 & )
-}
-
-boot_hook_add preinit_essential r76s_bootlog_start

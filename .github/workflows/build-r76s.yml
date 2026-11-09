@@ -128,17 +128,16 @@ jobs:
           tag_name: v25.12-r76s-${{ github.run_number }}
           name: iStoreOS 25.12.6 for FriendlyElec NanoPi R76S (Build #${{ github.run_number }})
           body: |
-            ### iStoreOS 25.12.6 for NanoPi R76S（诊断版）
+            ### iStoreOS 25.12.6 for NanoPi R76S（正式版）
 
-            本版本用于在**不接串口**的情况下定位 25.12 无法启动的原因，同时带上从 24.10 移植的 RK3576 电源域修复。
+            基于 iStoreOS 25.12.6，包含 RK3576 电源域修复、eMMC HS400ES/CQE BSP 调优、r8125 headroom 与 RTL9210 UAS 修复。
 
             | 文件 | 引导程序 | 用途 |
             | :--- | :--- | :--- |
-            | `*-bsp-uboot.img.gz` | 24.10 官方 U-Boot 2017.09 | **优先使用**：解压后用 RKDevTool 线刷 |
-            | `*-mainline-uboot-squashfs.img.gz` | 主线 U-Boot 2025.10 | 对照测试；也可网页升级（不会改写引导区） |
+            | `*-mainline-uboot-squashfs.img.gz` | 主线 U-Boot 2025.10 | **推荐**：RKDevTool 线刷；网页升级也可（不改引导区） |
+            | `*-bsp-uboot.img.gz` | 24.10 官方 U-Boot 2017.09 | 救砖/兼容回退：RKDevTool 线刷 |
 
-            - 开机日志：前 20 分钟每隔几秒把内核日志、进程状态、上次崩溃的 pstore 写入 eMMC 末尾 32 MiB 的空白区（分区之外）。刷回 24.10 后仍可读取。
-            - 内核参数：`panic=10`（内核崩溃 10 秒后自动重启，便于留下 pstore 记录）、`usbcore.autosuspend=-1`。
-            - 已包含：809-04~06 电源域补丁、r8125 headroom 补丁、RTL9210 IGNORE_UAS 补丁。
+            - eMMC：HS400 Enhanced Strobe + CQE 启用；FORESEE A3A551 实机 2GB direct read 264.5MB/s，无 I/O/SQUASHFS 错误。
+            - 内核参数：`usbcore.autosuspend=-1`；无诊断日志、无 ramoops。
             - 从 24.10 跨大版本升级时**不要保留配置**。
           files: ${{ env.FIRMWARE }}/*
