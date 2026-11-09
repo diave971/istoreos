@@ -79,10 +79,6 @@ jobs:
       - name: Organize Firmware Output
         id: organize
         if: steps.compile.outputs.status == 'success'
-        env:
-          # official iStoreOS 24.10.8 image for R76S; only its bootloader area (sectors 64..32767) is reused
-          BSP_IMG_URL: https://fw.koolcenter.com/iStoreOS/r76s/istoreos-24.10.8-2026073111-r76s-squashfs.img.gz
-          BSP_IMG_SHA256: 8e9d04116907ae833b42cd695c7020ced8448f283481222e361ecb11f043f715
         run: |
           cd bin/targets/rockchip/armv8
           rm -rf packages kmods
@@ -92,21 +88,8 @@ jobs:
           OUT=istoreos-25.12.6-${VER}-r76s
           mkdir -p ../out
 
-          # 1) as built: mainline U-Boot 2025.10, also usable for web sysupgrade
+          # mainline U-Boot 2025.10, also usable for web sysupgrade
           cp -a "$SRC" "../out/${OUT}-mainline-uboot-squashfs.img.gz"
-
-          # 2) same system, bootloader area replaced with the 24.10 BSP U-Boot 2017.09 (for RKDevTool / dd)
-          curl -fsSL -o /tmp/bsp.img.gz "$BSP_IMG_URL"
-          echo "$BSP_IMG_SHA256  /tmp/bsp.img.gz" | sha256sum -c -
-          python3 -c "import gzip,sys; f=gzip.open(sys.argv[1]); f.read(64*512); sys.stdout.buffer.write(f.read(32704*512))" /tmp/bsp.img.gz > /tmp/bsp-boot.bin
-          test "$(stat -c %s /tmp/bsp-boot.bin)" -eq $((32704*512))
-          gzip -dc "$SRC" > /tmp/r76s.img || [ $? -eq 2 ]   # 2 = trailing sysupgrade metadata ignored
-          dd if=/tmp/bsp-boot.bin of=/tmp/r76s.img bs=512 seek=64 conv=notrunc
-          dd if=/tmp/r76s.img bs=512 skip=64 count=32704 status=none > /tmp/boot-area.bin
-          grep -a -c 'U-Boot 2017.09' /tmp/boot-area.bin
-          rm -f /tmp/boot-area.bin
-          gzip -9c /tmp/r76s.img > "../out/${OUT}-bsp-uboot.img.gz"
-          rm -f /tmp/r76s.img /tmp/bsp.img.gz /tmp/bsp-boot.bin
 
           cd ../out
           cp -a ../armv8/*.manifest ../armv8/config.buildinfo . 2>/dev/null || true
@@ -134,8 +117,7 @@ jobs:
 
             | 文件 | 引导程序 | 用途 |
             | :--- | :--- | :--- |
-            | `*-mainline-uboot-squashfs.img.gz` | 主线 U-Boot 2025.10 | **推荐**：RKDevTool 线刷；网页升级也可（不改引导区） |
-            | `*-bsp-uboot.img.gz` | 24.10 官方 U-Boot 2017.09 | 救砖/兼容回退：RKDevTool 线刷 |
+            | `*-mainline-uboot-squashfs.img.gz` | 主线 U-Boot 2025.10 | RKDevTool 线刷；网页升级也可（不改引导区） |
 
             - eMMC：HS400 Enhanced Strobe + CQE 启用；FORESEE A3A551 实机 2GB direct read 264.5MB/s，无 I/O/SQUASHFS 错误。
             - 内核参数：`usbcore.autosuspend=-1`；无诊断日志、无 ramoops。
