@@ -3,7 +3,9 @@
 #
 # Started from preinit. For the first 20 minutes after boot it periodically
 # snapshots the kernel log and process state into a raw area at the end of
-# the eMMC user area, outside of all partitions. That area survives a hang,
+# the eMMC user area, outside of all partitions. Only 1 MiB is written per
+# snapshot (every 10 s early, then every 60 s) to keep raw I/O out of the
+# way of the boot-time reads. That area survives a hang,
 # a power cycle and re-flashing a normal image, so it can be read back later
 # from any firmware (see "r76s-bootlog read").
 #
@@ -14,6 +16,7 @@
 MAGIC="R76S-BOOTLOG-V1"
 END="=====R76S-BOOTLOG-END====="
 SLOT_BLOCKS=4096		# 16 MiB in 4 KiB blocks
+WRITE_BLOCKS=256		# only the first 1 MiB of a slot is written
 WORK=/tmp/r76s-bootlog
 
 find_emmc() {
@@ -39,9 +42,11 @@ read_slot() { # <dev> <block>
 }
 
 write_slot() { # <file> <dev> <block>
-	# truncate so a terminating NUL block always fits in the slot
-	dd if="$1" of="$WORK/slot" bs=4096 count=$((SLOT_BLOCKS - 1)) 2>/dev/null
-	dd if=/dev/zero bs=4096 count=1 >> "$WORK/slot" 2>/dev/null
+	# truncate to the slot, terminate it with the end marker even when the
+	# snapshot was cut
+	dd if="$1" of="$WORK/slot" bs=4096 count=$((WRITE_BLOCKS - 1)) 2>/dev/null
+	( printf '%s\n' "$END"; dd if=/dev/zero bs=4096 count=1 2>/dev/null ) | \
+		head -c 4096 >> "$WORK/slot" 2>/dev/null
 	dd if="$WORK/slot" of="/dev/$2" bs=4096 seek="$3" conv=notrunc 2>/dev/null
 	sync
 }
@@ -115,7 +120,7 @@ run() {
 		write_slot "$WORK/log" "$dev" "$base"
 		up="$(cut -d. -f1 /proc/uptime)"
 		[ "$up" -ge 1200 ] && break
-		if [ "$up" -lt 180 ]; then sleep 2; else sleep 15; fi
+		if [ "$up" -lt 120 ]; then sleep 10; else sleep 60; fi
 	done
 }
 
